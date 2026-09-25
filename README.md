@@ -324,6 +324,14 @@ kubectl create cronjob hello --image=busybox --schedule="*/5 * * * *" --dry-run=
 kubectl expose pod nginx --port=80 --name=nginx-service --dry-run=client -o yaml > service.yaml
 ```
 
+## Related Kubernetes Guide
+
+This repository is the focused command reference. For a broader hands-on Kubernetes guide covering Kubernetes fundamentals, workloads, Kind, AWS EKS, Jenkins integration, security, troubleshooting, and operational examples, see:
+
+**[Kubernetes K8s — Practical Kubernetes Learning & DevOps Guide](https://github.com/SandeepKomal/kubernetes-k8s)**
+
+Use this repository for fast imperative command lookup, and the companion repository for deeper Kubernetes concepts and hands-on examples.
+
 ## CKA Speed Tips
 
 1. **Generate first, modify second.** Use `--dry-run=client -o yaml` to create a starting manifest quickly.
