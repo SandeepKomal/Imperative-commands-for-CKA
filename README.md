@@ -1,91 +1,341 @@
-# Imperative-commands-for-CKA
+# Imperative Commands for CKA
 
-Before we begin, familiarize with the two options that can come in handy while working with the below commands:
+A practical, exam-focused reference for Kubernetes imperative commands you can type quickly during the CKA exam and in real cluster troubleshooting.
 
---dry-run: By default as soon as the command is run, the resource will be created. If you simply want to test your command , use the --dry-run=client option. This will not create the resource, instead, tell you whether the resource can be created and if your command is right.
+> **Tip:** Prefer `--dry-run=client -o yaml` when you need to generate a manifest instead of creating the resource immediately.
 
--o yaml: This will output the resource definition in YAML format on screen.
+## Quick command patterns
 
+| Purpose | Pattern |
+|---|---|
+| Preview without creating | `--dry-run=client` |
+| Generate YAML | `-o yaml` |
+| Save YAML to a file | `> resource.yaml` |
+| Create from YAML | `kubectl apply -f resource.yaml` |
+| Inspect generated YAML | `kubectl ... --dry-run=client -o yaml` |
 
+## 1. Pods
 
-Use the above two in combination to generate a resource definition file quickly, that you can then modify and create resources as required, instead of creating the files from scratch.
-
-
-
-POD
-Create an NGINX Pod
-
+### Create a Pod
+```bash
 kubectl run nginx --image=nginx
+```
 
-
-
-Generate POD Manifest YAML file (-o yaml). Don't create it(--dry-run)
-
+### Generate a Pod manifest
+```bash
 kubectl run nginx --image=nginx --dry-run=client -o yaml
+```
 
+### Generate and save the manifest
+```bash
+kubectl run nginx --image=nginx --dry-run=client -o yaml > nginx-pod.yaml
+```
 
+### Pod with a command
+```bash
+kubectl run nginx --image=nginx --command -- sleep 3600
+```
 
-Deployment
-Create a deployment
+### Pod with a label
+```bash
+kubectl run nginx --image=nginx --labels=app=web
+```
 
-kubectl create deployment --image=nginx nginx
+### Pod with an environment variable
+```bash
+kubectl run nginx --image=nginx --env="APP_ENV=prod"
+```
 
+## 2. Deployments
 
+### Create a Deployment
+```bash
+kubectl create deployment nginx --image=nginx
+```
 
-Generate Deployment YAML file (-o yaml). Don't create it(--dry-run)
+### Generate a Deployment manifest
+```bash
+kubectl create deployment nginx --image=nginx --dry-run=client -o yaml
+```
 
-kubectl create deployment --image=nginx nginx --dry-run=client -o yaml
-
-
-
-Generate Deployment with 4 Replicas
-
+### Create a Deployment with replicas
+```bash
 kubectl create deployment nginx --image=nginx --replicas=4
+```
 
-
-
-You can also scale a deployment using the kubectl scale command.
-
+### Scale a Deployment
+```bash
 kubectl scale deployment nginx --replicas=4
+```
 
-Another way to do this is to save the YAML definition to a file and modify
+### Update the container image
+```bash
+kubectl set image deployment/nginx nginx=nginx:1.27
+```
 
-kubectl create deployment nginx --image=nginx --dry-run=client -o yaml > nginx-deployment.yaml
+## 3. Services
 
+### Expose a Pod as ClusterIP
+```bash
+kubectl expose pod redis --port=6379 --name=redis-service --dry-run=client -o yaml
+```
 
+This approach derives the Service selector from the Pod labels.
 
-You can then update the YAML file with the replicas or any other field before creating the deployment.
+### Generate a ClusterIP Service
+```bash
+kubectl create service clusterip redis --tcp=6379:6379 --dry-run=client -o yaml
+```
 
+Check the generated selectors before applying when the Pod labels are not the default `app=<name>` pattern.
 
-
-Service
-Create a Service named redis-service of type ClusterIP to expose pod redis on port 6379
-
-kubectl expose pod redis --port=6379 --name redis-service --dry-run=client -o yaml
-
-(This will automatically use the pod's labels as selectors)
-
-Or
-
-kubectl create service clusterip redis --tcp=6379:6379 --dry-run=client -o yaml (This will not use the pods labels as selectors, instead it will assume selectors as app=redis. You cannot pass in selectors as an option. So it does not work very well if your pod has a different label set. So generate the file and modify the selectors before creating the service)
-
-
-
-Create a Service named nginx of type NodePort to expose pod nginx's port 80 on port 30080 on the nodes:
-
+### Expose a Pod as NodePort
+```bash
 kubectl expose pod nginx --type=NodePort --port=80 --name=nginx-service --dry-run=client -o yaml
+```
 
-(This will automatically use the pod's labels as selectors, but you cannot specify the node port. You have to generate a definition file and then add the node port in manually before creating the service with the pod.)
+To control the exact nodePort, generate the YAML, add `spec.ports[].nodePort`, then apply it.
 
-Or
-
+### Generate a NodePort Service with an explicit node port
+```bash
 kubectl create service nodeport nginx --tcp=80:80 --node-port=30080 --dry-run=client -o yaml
+```
 
-(This will not use the pods labels as selectors)
+## 4. Namespaces and Context
 
-Both the above commands have their own challenges. While one of it cannot accept a selector the other cannot accept a node port. I would recommend going with the kubectl expose command. If you need to specify a node port, generate a definition file using the same command and manually input the nodeport before creating the service.
+### Create a namespace
+```bash
+kubectl create namespace dev
+```
 
-Reference:
-https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands
+### Generate a namespace manifest
+```bash
+kubectl create namespace dev --dry-run=client -o yaml
+```
 
-https://kubernetes.io/docs/reference/kubectl/conventions/
+### Run a command in a namespace
+```bash
+kubectl -n dev get pods
+```
+
+### List contexts
+```bash
+kubectl config get-contexts
+```
+
+### Switch context
+```bash
+kubectl config use-context <context-name>
+```
+
+### Set the current context namespace
+```bash
+kubectl config set-context --current --namespace=dev
+```
+
+## 5. ConfigMaps
+
+### Create from literals
+```bash
+kubectl create configmap app-config --from-literal=ENV=prod --from-literal=LOG_LEVEL=info
+```
+
+### Create from a file
+```bash
+kubectl create configmap app-config --from-file=app.properties
+```
+
+### Generate YAML
+```bash
+kubectl create configmap app-config --from-literal=ENV=prod --dry-run=client -o yaml
+```
+
+## 6. Secrets
+
+### Create a generic Secret
+```bash
+kubectl create secret generic db-secret --from-literal=username=admin --from-literal=password='change-me'
+```
+
+### Generate a Secret manifest
+```bash
+kubectl create secret generic db-secret --from-literal=username=admin --dry-run=client -o yaml
+```
+
+### Create a Docker registry Secret
+```bash
+kubectl create secret docker-registry regcred \
+  --docker-server=<registry> \
+  --docker-username=<username> \
+  --docker-password=<password> \
+  --docker-email=<email>
+```
+
+> Never commit real credentials to a public repository.
+
+## 7. Jobs
+
+### Create a Job
+```bash
+kubectl create job hello --image=busybox -- echo "hello"
+```
+
+### Generate a Job manifest
+```bash
+kubectl create job hello --image=busybox --dry-run=client -o yaml -- echo "hello"
+```
+
+### Inspect a Job
+```bash
+kubectl get jobs
+kubectl describe job hello
+```
+
+## 8. CronJobs
+
+### Create a CronJob
+```bash
+kubectl create cronjob hello --image=busybox --schedule="*/5 * * * *" -- echo "hello"
+```
+
+### Generate a CronJob manifest
+```bash
+kubectl create cronjob hello --image=busybox --schedule="*/5 * * * *" --dry-run=client -o yaml -- echo "hello"
+```
+
+## 9. Troubleshooting
+
+### Get resources
+```bash
+kubectl get pods
+kubectl get pods -A
+kubectl get all -n dev
+```
+
+### Wide output
+```bash
+kubectl get pods -o wide
+```
+
+### Sort Pods by node
+```bash
+kubectl get pods -A -o wide --sort-by=.spec.nodeName
+```
+
+### Describe resources
+```bash
+kubectl describe pod <pod>
+kubectl describe node <node>
+```
+
+### Logs
+```bash
+kubectl logs <pod>
+kubectl logs <pod> -c <container>
+kubectl logs <pod> --previous
+kubectl logs -f <pod>
+```
+
+### Execute commands
+```bash
+kubectl exec -it <pod> -- sh
+kubectl exec -it <pod> -c <container> -- sh
+```
+
+### Port-forward
+```bash
+kubectl port-forward pod/<pod> 8080:80
+kubectl port-forward svc/<service> 8080:80
+```
+
+## 10. Editing and Patching
+
+### Edit a resource
+```bash
+kubectl edit deployment nginx
+```
+
+### Patch a resource
+```bash
+kubectl patch deployment nginx -p '{"spec":{"replicas":3}}'
+```
+
+### Delete resources
+```bash
+kubectl delete pod nginx
+kubectl delete deployment nginx
+kubectl delete service nginx
+```
+
+### Force delete a Pod
+```bash
+kubectl delete pod nginx --grace-period=0 --force
+```
+
+> Use force deletion only when you understand the consequences.
+
+## 11. Labels and Selectors
+
+### Add a label
+```bash
+kubectl label pod nginx app=web
+```
+
+### Update an existing label
+```bash
+kubectl label pod nginx app=api --overwrite
+```
+
+### Query by selector
+```bash
+kubectl get pods -l app=web
+```
+
+### Show labels
+```bash
+kubectl get pods --show-labels
+```
+
+## 12. Fast Manifest Generation Cheatsheet
+
+```bash
+# Pod
+kubectl run nginx --image=nginx --dry-run=client -o yaml > pod.yaml
+
+# Deployment
+kubectl create deployment nginx --image=nginx --dry-run=client -o yaml > deployment.yaml
+
+# Namespace
+kubectl create namespace dev --dry-run=client -o yaml > namespace.yaml
+
+# ConfigMap
+kubectl create configmap app-config --from-literal=ENV=prod --dry-run=client -o yaml > configmap.yaml
+
+# Secret
+kubectl create secret generic db-secret --from-literal=username=admin --dry-run=client -o yaml > secret.yaml
+
+# Job
+kubectl create job hello --image=busybox --dry-run=client -o yaml -- echo hello > job.yaml
+
+# CronJob
+kubectl create cronjob hello --image=busybox --schedule="*/5 * * * *" --dry-run=client -o yaml -- echo hello > cronjob.yaml
+
+# Service
+kubectl expose pod nginx --port=80 --name=nginx-service --dry-run=client -o yaml > service.yaml
+```
+
+## CKA Speed Tips
+
+1. **Generate first, modify second.** Use `--dry-run=client -o yaml` to create a starting manifest quickly.
+2. **Verify selectors.** Services depend on labels matching selectors.
+3. **Use the namespace explicitly.** Prefer `kubectl -n <namespace>` when the task specifies a namespace.
+4. **Troubleshoot before changing.** Start with `get`, `describe`, `logs`, and `exec`.
+5. **Know when to switch to YAML.** Imperative commands are fast for object creation, but many CKA tasks are easier by editing a generated manifest.
+
+## References
+
+- [kubectl command reference](https://kubernetes.io/docs/reference/kubectl/)
+- [kubectl cheat sheet](https://kubernetes.io/docs/reference/kubectl/cheatsheet/)
+- [CKA certification](https://training.linuxfoundation.org/certification/certified-kubernetes-administrator-cka/)
+
+> This repository is a practical command reference. Kubernetes command availability can vary with client/server versions, so always validate commands against the cluster version you are using.
