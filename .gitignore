@@ -1,0 +1,12 @@
+# Kubernetes / local files
+*.kubeconfig
+.kube/
+*.secret
+*.key
+*.pem
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
